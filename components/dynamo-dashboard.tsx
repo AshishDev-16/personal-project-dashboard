@@ -712,7 +712,7 @@ export function DynamoDashboard({ initialTasks, onSwitchProject }: { initialTask
               <MetricCard label="Merged" value={stats.merged} helper={`${Math.round((stats.merged / stats.total) * 100)}% complete`} tone="green" icon={<CheckCircle2 size={18} />} />
               <MetricCard label="Open PRs" value={stats.open} helper="still in review" tone="purple" icon={<Clock3 size={18} />} />
               <MetricCard label="Accepted" value={stats.accepted} helper="accepted label" tone="cyan" icon={<BadgeCheck size={18} />} />
-              <MetricCard label="Not credited" value={stats.notCredited} helper={`${stats.notCredited} already paid`} tone="amber" icon={<CircleDollarSign size={18} />} />
+              <MetricCard label="Not credited" value={stats.notCredited} helper={`${stats.credited} credited`} tone="amber" icon={<CircleDollarSign size={18} />} />
             </section>
 
             <section className="bento-grid">
