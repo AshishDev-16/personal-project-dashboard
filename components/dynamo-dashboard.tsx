@@ -443,14 +443,17 @@ export function DynamoDashboard({ initialTasks, onSwitchProject }: { initialTask
       tasks.filter(
         (task) =>
           task.prStatus === "Merged" &&
-          task.forkExists
+          paymentFor(task.repo)
+            .status !== "Credited"
       ).length;
+
     const completed =
       tasks.filter(
         (task) =>
-          task.prStatus === "Merged" &&
-          !task.forkExists
+          paymentFor(task.repo)
+            .status === "Credited"
       ).length;
+
     const open = tasks.filter((task) => task.prStatus === "Open").length;
     const accepted = tasks.filter((task) => task.accepted).length;
     const credited =
@@ -521,7 +524,8 @@ export function DynamoDashboard({ initialTasks, onSwitchProject }: { initialTask
         (
           filter === "Merged" &&
           task.prStatus === "Merged" &&
-          task.forkExists
+          paymentFor(task.repo)
+            .status !== "Credited"
         ) ||
 
         (
@@ -1120,7 +1124,13 @@ function TaskRows({ tasks, paymentFor, onEdit, compact = false }: { tasks: Dynam
               <tr key={task.repo}>
                 <td><div className="repo-cell"><span className="repo-icon"><GitFork size={15} /></span><div><a href={task.forkUrl} target="_blank" rel="noreferrer">{shortRepo(task.repo)} <ExternalLink size={12} /></a><small>{task.category}</small>{!compact && <p>{task.prTitle}</p>}</div></div></td>
                 <td><a className="pr-link" href={task.prUrl} target="_blank" rel="noreferrer">#{task.prNumber}</a></td>
-                <td><StatusPill status={task.prStatus} forkExists={task.forkExists} /></td>
+                <td><StatusPill
+                  status={task.prStatus}
+                  credited={
+                    payment.status ===
+                    "Credited"
+                  }
+                /></td>
                 <td><span className={`accept-pill ${task.accepted ? "yes" : "no"}`}>{task.accepted ? <BadgeCheck size={14} /> : null}{task.accepted ? "Accepted" : "Missing"}</span></td>
                 <td><PaymentPill status={payment.status} /></td>
                 <td><button className="row-action" onClick={() => onEdit(task.repo)}>Credit <ArrowUpRight size={14} /></button></td>
@@ -1144,7 +1154,13 @@ function PaymentRows({ tasks, paymentFor, changeStatus, onEdit }: { tasks: Dynam
             return (
               <tr key={task.repo}>
                 <td><div className="repo-cell"><span className="repo-icon"><GitFork size={15} /></span><div><a href={task.prUrl} target="_blank" rel="noreferrer">{shortRepo(task.repo)} <ExternalLink size={12} /></a><small>PR #{task.prNumber}</small></div></div></td>
-                <td><StatusPill status={task.prStatus} forkExists={task.forkExists} /></td>
+                <td><StatusPill
+                  status={task.prStatus}
+                  credited={
+                    payment.status ===
+                    "Credited"
+                  }
+                /></td>
                 <td><select className={`payment-select ${payment.status === "Credited" ? "paid" : "unpaid"}`} value={payment.status} onChange={(e) => changeStatus(task.repo, e.target.value as PaymentStatus)}><option>Not Credited</option><option>Credited</option></select></td>
                 <td>{payment.expectedAmount == null ? <span className="muted">—</span> : money(payment.expectedAmount, payment.currency)}</td>
                 <td>{payment.creditedAmount == null ? <span className="muted">—</span> : money(payment.creditedAmount, payment.currency)}</td>
@@ -1161,15 +1177,14 @@ function PaymentRows({ tasks, paymentFor, changeStatus, onEdit }: { tasks: Dynam
 
 function StatusPill({
   status,
-  forkExists,
+  credited,
 }: {
-  status: DynamoTask["prStatus"];
-  forkExists: boolean;
+  status:
+    DynamoTask["prStatus"];
+
+  credited: boolean;
 }) {
-  if (
-    status === "Merged" &&
-    !forkExists
-  ) {
+  if (credited) {
     return (
       <span className="status-pill merged">
         <i />
