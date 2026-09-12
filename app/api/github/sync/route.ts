@@ -10,6 +10,9 @@ type GitHubPull = {
   html_url?: string;
   labels?: GitHubLabel[];
 };
+type GitHubRepo = {
+  name?: string;
+};
 
 const headers: HeadersInit = {
   Accept: "application/vnd.github+json",
@@ -20,8 +23,32 @@ const headers: HeadersInit = {
 if (process.env.GITHUB_TOKEN) {
   headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
 }
+async function getCurrentForkNames() {
+  const response = await fetch(
+    "https://api.github.com/users/AshishDev-16/repos?per_page=100&type=owner",
+    {
+      headers,
+      cache: "no-store",
+    }
+  );
 
-async function syncTask(task: DynamoTask): Promise<DynamoTask> {
+  if (!response.ok) {
+    return null;
+  }
+
+  const repos =
+    (await response.json()) as GitHubRepo[];
+
+  return new Set(
+    repos
+      .map((repo) => repo.name)
+      .filter(
+        (name): name is string =>
+          Boolean(name)
+      )
+  );
+}
+async function syncTask(task: DynamoTask, currentForkNames: Set<string> | null): Promise<DynamoTask> {
   const url = `https://api.github.com/repos/handshake-project-dynamo/${task.repo}/pulls/${task.prNumber}`;
   const response = await fetch(url, { headers, cache: "no-store" });
 
@@ -45,17 +72,45 @@ async function syncTask(task: DynamoTask): Promise<DynamoTask> {
     merged,
     accepted: labels.some((label) => label.toLowerCase() === "accepted"),
     labels,
+    forkExists:
+      currentForkNames
+        ? currentForkNames.has(task.repo)
+        : task.forkExists,
   };
 }
 
 export async function GET() {
-  const settled = await Promise.allSettled(INITIAL_TASKS.map(syncTask));
+  const currentForkNames =
+    await getCurrentForkNames();
+
+  const settled =
+    await Promise.allSettled(
+      INITIAL_TASKS.map(
+        (task) =>
+          syncTask(
+            task,
+            currentForkNames
+          )
+      )
+    );
   const errors: string[] = [];
 
   const tasks = settled.map((result, index) => {
     if (result.status === "fulfilled") return result.value;
     errors.push(result.reason instanceof Error ? result.reason.message : String(result.reason));
-    return INITIAL_TASKS[index];
+    const fallback =
+      INITIAL_TASKS[index];
+
+    return {
+      ...fallback,
+
+      forkExists:
+        currentForkNames
+          ? currentForkNames.has(
+            fallback.repo
+          )
+          : fallback.forkExists,
+    };
   });
 
   return NextResponse.json({

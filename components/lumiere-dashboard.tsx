@@ -78,26 +78,258 @@ export function LumiereDashboard({ onSwitchProject }: { onSwitchProject: () => v
   const [toast, setToast] = useState("Manual workspace ready");
   const importRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as LumiereState;
-        if (Array.isArray(parsed.tasks)) setTasks(parsed.tasks);
-        if (parsed.settings) setSettings({ ...DEFAULT_SETTINGS, ...parsed.settings });
-      }
-    } catch {
-      setToast("Saved Lumière data could not be loaded");
-    } finally {
-      setHydrated(true);
-    }
-  }, []);
+useEffect(() => {
+  let cancelled = false;
 
-  useEffect(() => {
-    if (!hydrated) return;
-    const state: LumiereState = { tasks, settings };
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [tasks, settings, hydrated]);
+  async function loadState() {
+    try {
+      const response = await fetch(
+        "/api/lumiere/state",
+        {
+          cache: "no-store",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          "MongoDB load failed"
+        );
+      }
+
+      const data =
+        await response.json();
+
+      const databaseState =
+        data.state as
+          | LumiereState
+          | null;
+
+      let localState:
+        | LumiereState
+        | null = null;
+
+      try {
+        const saved =
+          window.localStorage.getItem(
+            STORAGE_KEY
+          );
+
+        if (saved) {
+          const parsed =
+            JSON.parse(
+              saved
+            ) as LumiereState;
+
+          if (
+            Array.isArray(
+              parsed.tasks
+            ) &&
+            parsed.settings
+          ) {
+            localState =
+              parsed;
+          }
+        }
+      } catch {
+        localState = null;
+      }
+
+      /*
+       * Database is the primary source.
+       *
+       * If database is empty but old
+       * browser data exists, migrate it.
+       */
+      const state =
+        databaseState ??
+        localState ?? {
+          tasks: [],
+          settings:
+            DEFAULT_SETTINGS,
+        };
+
+      if (cancelled) {
+        return;
+      }
+
+      setTasks(
+        state.tasks
+      );
+
+      setSettings({
+        ...DEFAULT_SETTINGS,
+        ...state.settings,
+      });
+
+      /*
+       * One-time migration.
+       */
+      if (
+        !databaseState &&
+        localState
+      ) {
+        const migrateResponse =
+          await fetch(
+            "/api/lumiere/state",
+            {
+              method: "PUT",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body:
+                JSON.stringify(
+                  localState
+                ),
+            }
+          );
+
+        if (
+          !migrateResponse.ok
+        ) {
+          throw new Error(
+            "Lumiere migration failed"
+          );
+        }
+      }
+
+      /*
+       * Browser storage is no longer
+       * our source of truth.
+       */
+      if (
+        databaseState ||
+        localState
+      ) {
+        window.localStorage.removeItem(
+          STORAGE_KEY
+        );
+      }
+
+      setToast(
+        "MongoDB workspace loaded"
+      );
+    } catch (error) {
+      console.error(error);
+
+      /*
+       * Emergency fallback:
+       * don't destroy local data if
+       * Atlas temporarily fails.
+       */
+      try {
+        const saved =
+          window.localStorage.getItem(
+            STORAGE_KEY
+          );
+
+        if (saved) {
+          const parsed =
+            JSON.parse(
+              saved
+            ) as LumiereState;
+
+          if (
+            Array.isArray(
+              parsed.tasks
+            )
+          ) {
+            setTasks(
+              parsed.tasks
+            );
+          }
+
+          if (
+            parsed.settings
+          ) {
+            setSettings({
+              ...DEFAULT_SETTINGS,
+              ...parsed.settings,
+            });
+          }
+        }
+      } catch {
+        // Ignore fallback failure.
+      }
+
+      setToast(
+        "MongoDB connection failed"
+      );
+    } finally {
+      if (!cancelled) {
+        setHydrated(true);
+      }
+    }
+  }
+
+  void loadState();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
+
+useEffect(() => {
+  if (!hydrated) {
+    return;
+  }
+
+  /*
+   * Small debounce so typing a prompt
+   * doesn't write to MongoDB on every
+   * single keystroke.
+   */
+  const timeout =
+    window.setTimeout(() => {
+      const state: LumiereState = {
+        tasks,
+        settings,
+      };
+
+      void fetch(
+        "/api/lumiere/state",
+        {
+          method: "PUT",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body:
+            JSON.stringify(
+              state
+            ),
+        }
+      )
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error();
+          }
+
+          setToast(
+            "Saved to MongoDB"
+          );
+        })
+        .catch(() => {
+          setToast(
+            "MongoDB save failed"
+          );
+        });
+    }, 400);
+
+  return () => {
+    window.clearTimeout(
+      timeout
+    );
+  };
+}, [
+  tasks,
+  settings,
+  hydrated,
+]);
 
   const stats = useMemo(() => {
     const counts = Object.fromEntries(STATUS_ORDER.map((status) => [status, tasks.filter((task) => task.status === status).length])) as Record<
@@ -293,7 +525,7 @@ export function LumiereDashboard({ onSwitchProject }: { onSwitchProject: () => v
             <h1>{view === "board" ? "Task Review Board" : view === "tasks" ? "Submission Registry" : "Workspace Settings"}</h1>
           </div>
           <div className="lum-top-actions">
-            <div className="lum-save-state"><span className="lum-online-dot" /><div><strong>{toast}</strong><small>Stored locally in this browser</small></div></div>
+            <div className="lum-save-state"><span className="lum-online-dot" /><div><strong>{toast}</strong><small>Persistent MongoDB workspace</small></div></div>
             <button className="lum-ghost-button" onClick={exportBackup}><Download size={16} /> Backup</button>
             <button className="lum-primary-button" onClick={() => setCreatingTask(true)}><Plus size={17} /> Add task</button>
           </div>

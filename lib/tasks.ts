@@ -21,6 +21,7 @@ function task(
     merged: prStatus === "Merged",
     accepted: true,
     labels: ["accepted"],
+    forkExists: true,
   };
 }
 

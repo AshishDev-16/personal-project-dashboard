@@ -21,22 +21,42 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { DynamoTask, PaymentMap, PaymentRecord, PaymentStatus } from "@/lib/types";
+import type { DynamoTask, PaymentMap, PaymentRecord, PaymentStatus, DynamoSummary } from "@/lib/types";
 import { ProjectSwitcher } from "@/components/project-switcher";
 
 type View = "overview" | "tasks" | "payments";
-type Filter = "All" | "Open" | "Merged" | "Paid" | "Not Paid";
+type Filter =
+  | "All"
+  | "Open"
+  | "Merged"
+  | "Credited"
+  | "Not Credited";
 
 const STORAGE_KEY = "dynamo-control-payments-v1";
 
-const defaultPayment: PaymentRecord = {
-  status: "Not Paid",
+const defaultPayment:
+  PaymentRecord = {
+  status: "Not Credited",
+
   expectedAmount: null,
-  receivedAmount: null,
+
+  creditedAmount: null,
+
   currency: "USD",
-  paidAt: null,
+
+  creditedAt: null,
+
   reference: "",
+
   notes: "",
+};
+const DEFAULT_DYNAMO_SUMMARY:
+  DynamoSummary = {
+  currency: "USD",
+
+  paidOutToBank: 987.71,
+
+  awaitingPayout: 280,
 };
 
 function money(value: number, currency: "USD" | "INR") {
@@ -73,33 +93,319 @@ export function DynamoDashboard({ initialTasks, onSwitchProject }: { initialTask
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [editingRepo, setEditingRepo] = useState<string | null>(null);
   const importRef = useRef<HTMLInputElement>(null);
+  const [summary, setSummary] =
+    useState<DynamoSummary>(
+      DEFAULT_DYNAMO_SUMMARY
+    );
 
   useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(STORAGE_KEY);
-      if (saved) setPayments(JSON.parse(saved));
-    } catch {
-      setSyncMessage("Payment backup could not be loaded");
+    let cancelled = false;
+
+    async function loadSummary() {
+      try {
+        const response =
+          await fetch(
+            "/api/dynamo/summary",
+            {
+              cache: "no-store",
+            }
+          );
+
+        if (!response.ok) {
+          throw new Error(
+            "Dynamo summary load failed"
+          );
+        }
+
+        const data =
+          await response.json();
+
+        if (
+          !cancelled &&
+          data.summary
+        ) {
+          setSummary(
+            data.summary
+          );
+        }
+      } catch (error) {
+        console.error(error);
+
+        if (!cancelled) {
+          setSyncMessage(
+            "Earnings summary load failed"
+          );
+        }
+      }
     }
+
+    void loadSummary();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payments));
-  }, [payments]);
+    let cancelled = false;
 
+    async function loadPayments() {
+      try {
+        const response = await fetch(
+          "/api/dynamo/payments",
+          {
+            cache: "no-store",
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            "Could not load MongoDB payments"
+          );
+        }
+
+        const data =
+          await response.json();
+
+        const databasePayments =
+          (data.payments ??
+            {}) as PaymentMap;
+
+        /*
+         * One-time migration of any old
+         * browser payment records.
+         */
+        let localPayments:
+          PaymentMap = {};
+
+        try {
+          const saved =
+            window.localStorage.getItem(
+              STORAGE_KEY
+            );
+
+          if (saved) {
+            localPayments =
+              JSON.parse(saved);
+          }
+        } catch {
+          localPayments = {};
+        }
+
+        /*
+         * MongoDB goes LAST.
+         *
+         * This means confirmed database
+         * information wins over stale
+         * browser data.
+         *
+         * Especially important for the
+         * confirmed $80 PR #5 payment.
+         */
+        const mergedPayments: PaymentMap = {
+          ...localPayments,
+          ...databasePayments,
+        };
+
+        if (!cancelled) {
+          setPayments(
+            mergedPayments
+          );
+        }
+
+        /*
+         * If old browser records exist,
+         * move them into MongoDB.
+         */
+        if (
+          Object.keys(localPayments)
+            .length
+        ) {
+          const migrateResponse =
+            await fetch(
+              "/api/dynamo/payments",
+              {
+                method: "POST",
+
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+
+                body:
+                  JSON.stringify({
+                    payments:
+                      mergedPayments,
+                  }),
+              }
+            );
+
+          if (
+            !migrateResponse.ok
+          ) {
+            throw new Error(
+              "Could not migrate old payment data"
+            );
+          }
+
+          window.localStorage.removeItem(
+            STORAGE_KEY
+          );
+        }
+
+        if (!cancelled) {
+          setSyncMessage(
+            "Payments loaded from MongoDB"
+          );
+        }
+      } catch (error) {
+        console.error(error);
+
+        if (!cancelled) {
+          setSyncMessage(
+            "MongoDB payment load failed"
+          );
+        }
+      }
+    }
+
+    void loadPayments();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function updateSummary(
+    patch: Partial<DynamoSummary>
+  ) {
+    const nextSummary = {
+      ...summary,
+      ...patch,
+    };
+
+    setSummary(
+      nextSummary
+    );
+
+    try {
+      const response =
+        await fetch(
+          "/api/dynamo/summary",
+          {
+            method: "PUT",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify(
+                nextSummary
+              ),
+          }
+        );
+
+      if (!response.ok) {
+        throw new Error(
+          "Summary save failed"
+        );
+      }
+
+      setSyncMessage(
+        "Earnings summary saved"
+      );
+    } catch (error) {
+      console.error(error);
+
+      setSyncMessage(
+        "Earnings summary could not be saved"
+      );
+    }
+  }
   const paymentFor = (repo: string) => payments[repo] ?? defaultPayment;
 
-  function updatePayment(repo: string, patch: Partial<PaymentRecord>) {
-    setPayments((current) => ({
-      ...current,
-      [repo]: { ...(current[repo] ?? defaultPayment), ...patch },
-    }));
+  async function savePayment(
+    repo: string,
+    payment: PaymentRecord
+  ) {
+    try {
+      const response = await fetch(
+        "/api/dynamo/payments",
+        {
+          method: "PUT",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+            repo,
+            payment,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          "Payment save failed"
+        );
+      }
+
+      setSyncMessage(
+        "Payment saved"
+      );
+    } catch (error) {
+      console.error(error);
+
+      setSyncMessage(
+        "Payment could not be saved"
+      );
+    }
   }
 
-  function changePaymentStatus(repo: string, status: PaymentStatus) {
+
+  function updatePayment(
+    repo: string,
+    patch: Partial<PaymentRecord>
+  ) {
+    const currentPayment =
+      paymentFor(repo);
+
+    const nextPayment: PaymentRecord = {
+      ...currentPayment,
+      ...patch,
+    };
+
+    setPayments((current) => ({
+      ...current,
+      [repo]:
+        nextPayment,
+    }));
+
+    void savePayment(
+      repo,
+      nextPayment
+    );
+  }
+
+  function changePaymentStatus(
+    repo: string,
+    status: PaymentStatus
+  ) {
     updatePayment(repo, {
       status,
-      paidAt: status === "Paid" ? paymentFor(repo).paidAt ?? new Date().toISOString().slice(0, 10) : null,
+
+      creditedAt:
+        status === "Credited"
+          ? paymentFor(repo)
+            .creditedAt ??
+          new Date()
+            .toISOString()
+            .slice(0, 10)
+          : null,
     });
   }
 
@@ -133,17 +439,77 @@ export function DynamoDashboard({ initialTasks, onSwitchProject }: { initialTask
   }, []);
 
   const stats = useMemo(() => {
-    const merged = tasks.filter((task) => task.prStatus === "Merged").length;
+    const merged =
+      tasks.filter(
+        (task) =>
+          task.prStatus === "Merged" &&
+          task.forkExists
+      ).length;
+    const completed =
+      tasks.filter(
+        (task) =>
+          task.prStatus === "Merged" &&
+          !task.forkExists
+      ).length;
     const open = tasks.filter((task) => task.prStatus === "Open").length;
     const accepted = tasks.filter((task) => task.accepted).length;
-    const paid = tasks.filter((task) => paymentFor(task.repo).status === "Paid").length;
-    const unpaid = tasks.length - paid;
-    const expected = tasks.reduce((sum, task) => sum + (paymentFor(task.repo).expectedAmount ?? 0), 0);
-    const received = tasks.reduce((sum, task) => sum + (paymentFor(task.repo).receivedAmount ?? 0), 0);
-    return { total: tasks.length, merged, open, accepted, paid, unpaid, expected, received };
+    const credited =
+      tasks.filter(
+        (task) =>
+          paymentFor(task.repo)
+            .status === "Credited"
+      ).length;
+
+    const notCredited =
+      tasks.length - credited;
+
+    const expected =
+      tasks.reduce(
+        (sum, task) =>
+          sum +
+          (
+            paymentFor(task.repo)
+              .expectedAmount ?? 0
+          ),
+        0
+      );
+
+    const taskCredits =
+      tasks.reduce(
+        (sum, task) =>
+          sum +
+          (
+            paymentFor(task.repo)
+              .creditedAmount ?? 0
+          ),
+        0
+      );
+    return {
+      total: tasks.length,
+
+      merged,
+
+      open,
+
+      accepted,
+
+      credited,
+
+      notCredited,
+
+      expected,
+
+      taskCredits,
+
+      completed,
+    };
     // payments is intentionally a dependency through paymentFor.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks, payments]);
+
+  const totalDynamoEarned =
+    summary.paidOutToBank +
+    summary.awaitingPayout;
 
   const filteredTasks = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -151,7 +517,18 @@ export function DynamoDashboard({ initialTasks, onSwitchProject }: { initialTask
       const payment = paymentFor(task.repo).status;
       const matchesFilter =
         filter === "All" ||
-        filter === task.prStatus ||
+
+        (
+          filter === "Merged" &&
+          task.prStatus === "Merged" &&
+          task.forkExists
+        ) ||
+
+        (
+          filter === "Open" &&
+          task.prStatus === "Open"
+        ) ||
+
         filter === payment;
       const matchesQuery =
         !q ||
@@ -164,9 +541,15 @@ export function DynamoDashboard({ initialTasks, onSwitchProject }: { initialTask
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks, payments, filter, query]);
 
-  const mergedWaitingPayment = tasks.filter(
-    (task) => task.prStatus === "Merged" && paymentFor(task.repo).status === "Not Paid",
-  );
+  const mergedNotCredited =
+    tasks.filter(
+      (task) =>
+        task.prStatus ===
+        "Merged" &&
+        paymentFor(task.repo)
+          .status ===
+        "Not Credited"
+    );
 
   const categoryCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -191,8 +574,41 @@ export function DynamoDashboard({ initialTasks, onSwitchProject }: { initialTask
       try {
         const parsed = JSON.parse(String(reader.result));
         if (!parsed.payments || typeof parsed.payments !== "object") throw new Error("Invalid backup file");
-        setPayments(parsed.payments);
-        setSyncMessage("Payment backup imported");
+        setPayments(
+          parsed.payments
+        );
+
+        void fetch(
+          "/api/dynamo/payments",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                payments:
+                  parsed.payments,
+              }),
+          }
+        )
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error();
+            }
+
+            setSyncMessage(
+              "Backup imported to MongoDB"
+            );
+          })
+          .catch(() => {
+            setSyncMessage(
+              "Backup loaded but MongoDB save failed"
+            );
+          });
       } catch {
         setSyncMessage("That backup file is not valid");
       }
@@ -200,7 +616,14 @@ export function DynamoDashboard({ initialTasks, onSwitchProject }: { initialTask
     reader.readAsText(file);
   }
 
-  const paymentProgress = stats.total ? Math.round((stats.paid / stats.total) * 100) : 0;
+  const creditProgress =
+    stats.total
+      ? Math.round(
+        (stats.credited /
+          stats.total) *
+        100
+      )
+      : 0;
 
   return (
     <div className="app-shell">
@@ -219,7 +642,7 @@ export function DynamoDashboard({ initialTasks, onSwitchProject }: { initialTask
         <nav className="nav-stack">
           <NavButton icon={<LayoutDashboard size={18} />} label="Overview" active={view === "overview"} onClick={() => { setView("overview"); setSidebarOpen(false); }} />
           <NavButton icon={<Activity size={18} />} label="Tasks" badge={String(stats.total)} active={view === "tasks"} onClick={() => { setView("tasks"); setSidebarOpen(false); }} />
-          <NavButton icon={<WalletCards size={18} />} label="Payments" badge={String(stats.unpaid)} active={view === "payments"} onClick={() => { setView("payments"); setSidebarOpen(false); }} />
+          <NavButton icon={<WalletCards size={18} />} label="Task Credits" badge={String(stats.notCredited)} active={view === "payments"} onClick={() => { setView("payments"); setSidebarOpen(false); }} />
         </nav>
 
         <div className="sidebar-bottom">
@@ -231,7 +654,7 @@ export function DynamoDashboard({ initialTasks, onSwitchProject }: { initialTask
           <div className="terminal-card">
             <div className="terminal-line"><span>$</span> git status</div>
             <div className="terminal-ok">{stats.merged} merged · {stats.open} open</div>
-            <div className="terminal-dim">{stats.unpaid} awaiting payment</div>
+            <div className="terminal-dim">{stats.notCredited} not yet credited</div>
           </div>
           <div className="identity-card">
             <div className="avatar">AK</div>
@@ -248,7 +671,7 @@ export function DynamoDashboard({ initialTasks, onSwitchProject }: { initialTask
           <button className="mobile-menu" onClick={() => setSidebarOpen(true)} aria-label="Open menu"><Menu size={20} /></button>
           <div>
             <p className="eyebrow">HANDSHAKE · PROJECT DYNAMO</p>
-            <h1>{view === "overview" ? "Command Center" : view === "tasks" ? "Task Registry" : "Payment Ledger"}</h1>
+            <h1>{view === "overview" ? "Command Center" : view === "tasks" ? "Task Registry" : "Task Credit Ledger"}</h1>
           </div>
           <div className="topbar-actions">
             <div className="sync-meta"><span>{syncMessage}</span><small>Last sync: {niceTime(lastSync)}</small></div>
@@ -269,9 +692,14 @@ export function DynamoDashboard({ initialTasks, onSwitchProject }: { initialTask
                 <p>GitHub owns the technical truth. You own the money trail.</p>
               </div>
               <div className="hero-score">
-                <span>Payment completion</span>
-                <strong>{paymentProgress}%</strong>
-                <div className="mini-progress"><i style={{ width: `${paymentProgress}%` }} /></div>
+                <span>
+                  Task credit coverage
+                </span>
+
+                <strong>
+                  {creditProgress}%
+                </strong>
+                <div className="mini-progress"><i style={{ width: `${creditProgress}%` }} /></div>
               </div>
             </section>
 
@@ -280,7 +708,7 @@ export function DynamoDashboard({ initialTasks, onSwitchProject }: { initialTask
               <MetricCard label="Merged" value={stats.merged} helper={`${Math.round((stats.merged / stats.total) * 100)}% complete`} tone="green" icon={<CheckCircle2 size={18} />} />
               <MetricCard label="Open PRs" value={stats.open} helper="still in review" tone="purple" icon={<Clock3 size={18} />} />
               <MetricCard label="Accepted" value={stats.accepted} helper="accepted label" tone="cyan" icon={<BadgeCheck size={18} />} />
-              <MetricCard label="Unpaid" value={stats.unpaid} helper={`${stats.paid} already paid`} tone="amber" icon={<CircleDollarSign size={18} />} />
+              <MetricCard label="Not credited" value={stats.notCredited} helper={`${stats.notCredited} already paid`} tone="amber" icon={<CircleDollarSign size={18} />} />
             </section>
 
             <section className="bento-grid">
@@ -289,25 +717,114 @@ export function DynamoDashboard({ initialTasks, onSwitchProject }: { initialTask
                 <div className="pipeline">
                   <PipelineStep label="Accepted" value={stats.accepted} total={stats.total} tone="cyan" />
                   <PipelineStep label="Merged" value={stats.merged} total={stats.total} tone="green" />
-                  <PipelineStep label="Paid" value={stats.paid} total={stats.total} tone="blue" />
+                  <PipelineStep label="Credited" value={stats.credited} total={stats.total} tone="blue" />
                 </div>
-                <div className="pipeline-note"><strong>{mergedWaitingPayment.length}</strong> merged task{mergedWaitingPayment.length === 1 ? "" : "s"} currently waiting for payment.</div>
+                <div className="pipeline-note"><strong>{mergedNotCredited.length}</strong> merged task{mergedNotCredited.length === 1 ? "" : "s"} merged task
+                  {mergedNotCredited.length === 1
+                    ? ""
+                    : "s"}{" "}
+                  not yet credited by the platform.</div>
               </article>
 
               <article className="glass-panel money-card">
-                <div className="section-heading"><div><span>MONEY</span><h3>Payment snapshot</h3></div><WalletCards size={18} /></div>
-                <div className="money-rows">
-                  <div><span>Received</span><strong>{money(stats.received, "USD")}</strong></div>
-                  <div><span>Expected entered</span><strong>{money(stats.expected, "USD")}</strong></div>
-                  <div><span>Tasks paid</span><strong>{stats.paid} / {stats.total}</strong></div>
+                <div className="section-heading">
+                  <div>
+                    <span>
+                      PROJECT EARNINGS
+                    </span>
+
+                    <h3>
+                      Dynamo earnings
+                    </h3>
+                  </div>
+
+                  <WalletCards size={18} />
                 </div>
-                <button className="text-button" onClick={() => setView("payments")}>Open payment ledger <ArrowUpRight size={15} /></button>
-              </article>
+
+                <div className="money-rows">
+                  <div>
+                    <span>
+                      Total earned
+                    </span>
+
+                    <strong>
+                      {money(
+                        totalDynamoEarned,
+                        summary.currency
+                      )}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>
+                      Paid out to bank
+                    </span>
+
+                    <strong>
+                      {money(
+                        summary.paidOutToBank,
+                        summary.currency
+                      )}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>
+                      Awaiting bank payout
+                    </span>
+
+                    <strong>
+                      {money(
+                        summary.awaitingPayout,
+                        summary.currency
+                      )}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>
+                      Task credits logged
+                    </span>
+
+                    <strong>
+                      {money(
+                        stats.taskCredits,
+                        "USD"
+                      )}
+                    </strong>
+                  </div>
+                </div>
+
+                <button
+                  className="text-button"
+                  onClick={() =>
+                    setView("payments")
+                  }
+                >
+                  Open task credit ledger
+
+                  <ArrowUpRight size={15} />
+                </button></article>
 
               <article className="glass-panel attention-card">
                 <div className="section-heading"><div><span>ATTENTION</span><h3>What needs you</h3></div><Clock3 size={18} /></div>
                 <AttentionRow tone="purple" value={stats.open} text="pull requests are still open" onClick={() => { setFilter("Open"); setView("tasks"); }} />
-                <AttentionRow tone="amber" value={mergedWaitingPayment.length} text="merged tasks are unpaid" onClick={() => { setFilter("Not Paid"); setView("payments"); }} />
+                <AttentionRow
+                  tone="amber"
+                  value={
+                    mergedNotCredited.length
+                  }
+                  text="merged tasks are not yet credited"
+                  onClick={() => {
+                    setFilter(
+                      "Not Credited"
+                    );
+
+                    setView(
+                      "payments"
+                    );
+                  }}
+                />
                 <AttentionRow tone="green" value={stats.accepted} text="tasks carry the accepted state" onClick={() => setView("tasks")} />
               </article>
 
@@ -342,13 +859,187 @@ export function DynamoDashboard({ initialTasks, onSwitchProject }: { initialTask
 
         {view === "payments" && (
           <div className="page-content">
-            <section className="payment-metrics">
-              <div className="glass-panel payment-big"><span>PAID TASKS</span><strong>{stats.paid}</strong><small>of {stats.total}</small></div>
-              <div className="glass-panel payment-big warning"><span>AWAITING PAYMENT</span><strong>{stats.unpaid}</strong><small>{mergedWaitingPayment.length} already merged</small></div>
-              <div className="glass-panel payment-big"><span>RECEIVED</span><strong>{money(stats.received, "USD")}</strong><small>amounts you have entered</small></div>
+            <section className="payment-metrics dynamo-earnings-metrics">
+
+              <div className="glass-panel payment-big">
+                <span>
+                  TOTAL DYNAMO EARNED
+                </span>
+
+                <strong>
+                  {money(
+                    totalDynamoEarned,
+                    summary.currency
+                  )}
+                </strong>
+
+                <small>
+                  all project earnings
+                </small>
+              </div>
+
+
+              <div className="glass-panel payment-big">
+                <span>
+                  PAID OUT TO BANK
+                </span>
+
+                <strong>
+                  {money(
+                    summary.paidOutToBank,
+                    summary.currency
+                  )}
+                </strong>
+
+                <small>
+                  actual payout received
+                </small>
+              </div>
+
+
+              <div className="glass-panel payment-big warning">
+                <span>
+                  AWAITING BANK PAYOUT
+                </span>
+
+                <strong>
+                  {money(
+                    summary.awaitingPayout,
+                    summary.currency
+                  )}
+                </strong>
+
+                <small>
+                  currently on platform
+                </small>
+              </div>
+
+
+              <div className="glass-panel payment-big">
+                <span>
+                  TASK CREDITS LOGGED
+                </span>
+
+                <strong>
+                  {money(
+                    stats.taskCredits,
+                    "USD"
+                  )}
+                </strong>
+
+                <small>
+                  {stats.credited}
+                  {" / "}
+                  {stats.total}
+                  {" "}
+                  tracked tasks credited
+                </small>
+              </div>
+
+            </section>
+            <section className="glass-panel dynamo-summary-editor">
+
+              <div className="section-heading">
+                <div>
+                  <span>
+                    PLATFORM SNAPSHOT
+                  </span>
+
+                  <h3>
+                    Overall Dynamo earnings
+                  </h3>
+                </div>
+
+                <WalletCards
+                  size={18}
+                />
+              </div>
+
+
+              <p className="summary-helper">
+                Update these two numbers
+                whenever the Dynamo platform
+                payout dashboard changes.
+                Individual task credits are
+                tracked separately below.
+              </p>
+
+
+              <div className="dynamo-summary-fields">
+
+                <label>
+                  <span>
+                    Paid out to bank
+                  </span>
+
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={
+                      summary.paidOutToBank
+                    }
+                    onChange={(event) =>
+                      void updateSummary({
+                        paidOutToBank:
+                          Number(
+                            event.target.value
+                          ) || 0,
+                      })
+                    }
+                  />
+                </label>
+
+
+                <label>
+                  <span>
+                    Awaiting bank payout
+                  </span>
+
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={
+                      summary.awaitingPayout
+                    }
+                    onChange={(event) =>
+                      void updateSummary({
+                        awaitingPayout:
+                          Number(
+                            event.target.value
+                          ) || 0,
+                      })
+                    }
+                  />
+                </label>
+
+
+                <div className="dynamo-summary-total">
+
+                  <span>
+                    Total earned
+                  </span>
+
+                  <strong>
+                    {money(
+                      totalDynamoEarned,
+                      summary.currency
+                    )}
+                  </strong>
+
+                </div>
+
+              </div>
+
             </section>
             <section className="glass-panel registry-panel">
-              <Toolbar query={query} setQuery={setQuery} filter={filter} setFilter={setFilter} filters={["All", "Paid", "Not Paid", "Merged"]} count={filteredTasks.length} />
+              <Toolbar query={query} setQuery={setQuery} filter={filter} setFilter={setFilter} filters={[
+                "All",
+                "Credited",
+                "Not Credited",
+                "Merged"
+              ]} count={filteredTasks.length} />
               <PaymentRows tasks={filteredTasks} paymentFor={paymentFor} changeStatus={changePaymentStatus} onEdit={setEditingRepo} />
             </section>
           </div>
@@ -429,10 +1120,10 @@ function TaskRows({ tasks, paymentFor, onEdit, compact = false }: { tasks: Dynam
               <tr key={task.repo}>
                 <td><div className="repo-cell"><span className="repo-icon"><GitFork size={15} /></span><div><a href={task.forkUrl} target="_blank" rel="noreferrer">{shortRepo(task.repo)} <ExternalLink size={12} /></a><small>{task.category}</small>{!compact && <p>{task.prTitle}</p>}</div></div></td>
                 <td><a className="pr-link" href={task.prUrl} target="_blank" rel="noreferrer">#{task.prNumber}</a></td>
-                <td><StatusPill status={task.prStatus} /></td>
+                <td><StatusPill status={task.prStatus} forkExists={task.forkExists} /></td>
                 <td><span className={`accept-pill ${task.accepted ? "yes" : "no"}`}>{task.accepted ? <BadgeCheck size={14} /> : null}{task.accepted ? "Accepted" : "Missing"}</span></td>
                 <td><PaymentPill status={payment.status} /></td>
-                <td><button className="row-action" onClick={() => onEdit(task.repo)}>Payment <ArrowUpRight size={14} /></button></td>
+                <td><button className="row-action" onClick={() => onEdit(task.repo)}>Credit <ArrowUpRight size={14} /></button></td>
               </tr>
             );
           })}
@@ -446,18 +1137,18 @@ function PaymentRows({ tasks, paymentFor, changeStatus, onEdit }: { tasks: Dynam
   return (
     <div className="data-table-wrap">
       <table className="data-table payment-table">
-        <thead><tr><th>Repository</th><th>PR state</th><th>Payment</th><th>Expected</th><th>Received</th><th>Paid on</th><th /></tr></thead>
+        <thead><tr><th>Repository</th><th>PR state</th><th>Credit status</th><th>Expected credit</th><th>Credited amount</th><th>Credited on</th><th /></tr></thead>
         <tbody>
           {tasks.map((task) => {
             const payment = paymentFor(task.repo);
             return (
               <tr key={task.repo}>
                 <td><div className="repo-cell"><span className="repo-icon"><GitFork size={15} /></span><div><a href={task.prUrl} target="_blank" rel="noreferrer">{shortRepo(task.repo)} <ExternalLink size={12} /></a><small>PR #{task.prNumber}</small></div></div></td>
-                <td><StatusPill status={task.prStatus} /></td>
-                <td><select className={`payment-select ${payment.status === "Paid" ? "paid" : "unpaid"}`} value={payment.status} onChange={(e) => changeStatus(task.repo, e.target.value as PaymentStatus)}><option>Not Paid</option><option>Paid</option></select></td>
+                <td><StatusPill status={task.prStatus} forkExists={task.forkExists} /></td>
+                <td><select className={`payment-select ${payment.status === "Credited" ? "paid" : "unpaid"}`} value={payment.status} onChange={(e) => changeStatus(task.repo, e.target.value as PaymentStatus)}><option>Not Credited</option><option>Credited</option></select></td>
                 <td>{payment.expectedAmount == null ? <span className="muted">—</span> : money(payment.expectedAmount, payment.currency)}</td>
-                <td>{payment.receivedAmount == null ? <span className="muted">—</span> : money(payment.receivedAmount, payment.currency)}</td>
-                <td>{payment.paidAt || <span className="muted">—</span>}</td>
+                <td>{payment.creditedAmount == null ? <span className="muted">—</span> : money(payment.creditedAmount, payment.currency)}</td>
+                <td>{payment.creditedAt || <span className="muted">—</span>}</td>
                 <td><button className="row-action" onClick={() => onEdit(task.repo)}>Edit <ArrowUpRight size={14} /></button></td>
               </tr>
             );
@@ -468,12 +1159,52 @@ function PaymentRows({ tasks, paymentFor, changeStatus, onEdit }: { tasks: Dynam
   );
 }
 
-function StatusPill({ status }: { status: DynamoTask["prStatus"] }) {
-  return <span className={`status-pill ${status.toLowerCase()}`}><i />{status}</span>;
+function StatusPill({
+  status,
+  forkExists,
+}: {
+  status: DynamoTask["prStatus"];
+  forkExists: boolean;
+}) {
+  if (
+    status === "Merged" &&
+    !forkExists
+  ) {
+    return (
+      <span className="status-pill merged">
+        <i />
+        Completed
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className={`status-pill ${status.toLowerCase()}`}
+    >
+      <i />
+      {status}
+    </span>
+  );
 }
 
-function PaymentPill({ status }: { status: PaymentStatus }) {
-  return <span className={`payment-pill ${status === "Paid" ? "paid" : "unpaid"}`}><i />{status}</span>;
+function PaymentPill({
+  status,
+}: {
+  status: PaymentStatus;
+}) {
+  return (
+    <span
+      className={`payment-pill ${status === "Credited"
+        ? "paid"
+        : "unpaid"
+        }`}
+    >
+      <i />
+
+      {status}
+    </span>
+  );
 }
 
 function PaymentDrawer({ task, payment, onChange, onClose }: { task: DynamoTask; payment: PaymentRecord; onChange: (patch: Partial<PaymentRecord>) => void; onClose: () => void }) {
@@ -481,16 +1212,46 @@ function PaymentDrawer({ task, payment, onChange, onClose }: { task: DynamoTask;
     <div className="drawer-layer">
       <button className="drawer-backdrop" onClick={onClose} aria-label="Close payment editor" />
       <aside className="drawer">
-        <div className="drawer-header"><div><span>PAYMENT RECORD</span><h2>{shortRepo(task.repo)}</h2><p>PR #{task.prNumber} · {task.prStatus}</p></div><button onClick={onClose}><X size={20} /></button></div>
+        <div className="drawer-header"><div><span>TASK CREDIT RECORD</span><h2>{shortRepo(task.repo)}</h2><p>PR #{task.prNumber} · {task.prStatus}</p></div><button onClick={onClose}><X size={20} /></button></div>
         <div className="drawer-body">
-          <label>Status<select value={payment.status} onChange={(e) => onChange({ status: e.target.value as PaymentStatus, paidAt: e.target.value === "Paid" ? payment.paidAt ?? new Date().toISOString().slice(0, 10) : null })}><option>Not Paid</option><option>Paid</option></select></label>
-          <div className="field-grid">
+          <label>
+            Status
+
+            <select
+              value={payment.status}
+              onChange={(event) =>
+                onChange({
+                  status:
+                    event.target
+                      .value as PaymentStatus,
+
+                  creditedAt:
+                    event.target.value ===
+                      "Credited"
+                      ? payment
+                        .creditedAt ??
+                      new Date()
+                        .toISOString()
+                        .slice(0, 10)
+                      : null,
+                })
+              }
+            >
+              <option>
+                Not Credited
+              </option>
+
+              <option>
+                Credited
+              </option>
+            </select>
+          </label><div className="field-grid">
             <label>Currency<select value={payment.currency} onChange={(e) => onChange({ currency: e.target.value as "USD" | "INR" })}><option value="USD">USD</option><option value="INR">INR</option></select></label>
-            <label>Paid date<input type="date" value={payment.paidAt ?? ""} onChange={(e) => onChange({ paidAt: e.target.value || null })} /></label>
+            <label>Credited on<input type="date" value={payment.creditedAt ?? ""} onChange={(e) => onChange({ creditedAt: e.target.value || null })} /></label>
           </div>
           <div className="field-grid">
             <label>Expected amount<input type="number" min="0" step="0.01" placeholder="0.00" value={payment.expectedAmount ?? ""} onChange={(e) => onChange({ expectedAmount: e.target.value === "" ? null : Number(e.target.value) })} /></label>
-            <label>Received amount<input type="number" min="0" step="0.01" placeholder="0.00" value={payment.receivedAmount ?? ""} onChange={(e) => onChange({ receivedAmount: e.target.value === "" ? null : Number(e.target.value) })} /></label>
+            <label>Credited amount<input type="number" min="0" step="0.01" placeholder="0.00" value={payment.creditedAmount ?? ""} onChange={(e) => onChange({ creditedAmount: e.target.value === "" ? null : Number(e.target.value) })} /></label>
           </div>
           <label>Payment / batch reference<input placeholder="e.g. Upwork Sep batch" value={payment.reference} onChange={(e) => onChange({ reference: e.target.value })} /></label>
           <label>Notes<textarea rows={5} placeholder="Anything you want to remember about this payment…" value={payment.notes} onChange={(e) => onChange({ notes: e.target.value })} /></label>

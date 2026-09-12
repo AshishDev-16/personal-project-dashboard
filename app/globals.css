@@ -4621,3 +4621,120 @@ a {
 .lum-modal .lum-form-error {
   font-size: 12px !important;
 }
+
+/* =========================================================
+   DYNAMO PROJECT EARNINGS
+   ========================================================= */
+
+.dynamo-earnings-metrics {
+  grid-template-columns:
+    repeat(4, minmax(0, 1fr));
+}
+
+.dynamo-summary-editor {
+  padding: 22px;
+}
+
+.summary-helper {
+  margin: 8px 0 20px;
+  max-width: 720px;
+  color: var(--muted, #8d96a5);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.dynamo-summary-fields {
+  display: grid;
+  grid-template-columns:
+    minmax(180px, 1fr)
+    minmax(180px, 1fr)
+    minmax(200px, .85fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.dynamo-summary-fields label {
+  display: grid;
+  gap: 8px;
+}
+
+.dynamo-summary-fields label > span,
+.dynamo-summary-total > span {
+  font-size: 12px;
+  color: #8e9aa8;
+}
+
+.dynamo-summary-fields input {
+  width: 100%;
+  height: 48px;
+  padding: 0 14px;
+
+  border: 1px solid
+    rgba(255, 255, 255, .09);
+
+  border-radius: 12px;
+
+  background:
+    rgba(7, 15, 13, .78);
+
+  color: #eefcf6;
+
+  font-size: 15px;
+
+  outline: none;
+}
+
+.dynamo-summary-fields input:focus {
+  border-color:
+    rgba(52, 211, 153, .45);
+
+  box-shadow:
+    0 0 0 3px
+    rgba(16, 185, 129, .08);
+}
+
+.dynamo-summary-total {
+  min-height: 72px;
+
+  padding: 14px 16px;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+
+  border: 1px solid
+    rgba(52, 211, 153, .14);
+
+  border-radius: 13px;
+
+  background:
+    rgba(16, 185, 129, .055);
+}
+
+.dynamo-summary-total strong {
+  font-size: 25px;
+
+  color: #34d399;
+}
+
+
+@media (max-width: 1200px) {
+  .dynamo-earnings-metrics {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+}
+
+
+@media (max-width: 850px) {
+  .dynamo-summary-fields {
+    grid-template-columns:
+      1fr;
+  }
+
+  .dynamo-earnings-metrics {
+    grid-template-columns:
+      1fr;
+  }
+}
