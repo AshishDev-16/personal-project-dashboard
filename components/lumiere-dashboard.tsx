@@ -78,258 +78,258 @@ export function LumiereDashboard({ onSwitchProject }: { onSwitchProject: () => v
   const [toast, setToast] = useState("Manual workspace ready");
   const importRef = useRef<HTMLInputElement>(null);
 
-useEffect(() => {
-  let cancelled = false;
+  useEffect(() => {
+    let cancelled = false;
 
-  async function loadState() {
-    try {
-      const response = await fetch(
-        "/api/lumiere/state",
-        {
-          cache: "no-store",
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(
-          "MongoDB load failed"
+    async function loadState() {
+      try {
+        const response = await fetch(
+          "/api/lumiere/state",
+          {
+            cache: "no-store",
+          }
         );
-      }
 
-      const data =
-        await response.json();
+        if (!response.ok) {
+          throw new Error(
+            "MongoDB load failed"
+          );
+        }
 
-      const databaseState =
-        data.state as
+        const data =
+          await response.json();
+
+        const databaseState =
+          data.state as
           | LumiereState
           | null;
 
-      let localState:
-        | LumiereState
-        | null = null;
+        let localState:
+          | LumiereState
+          | null = null;
 
-      try {
-        const saved =
-          window.localStorage.getItem(
-            STORAGE_KEY
-          );
+        try {
+          const saved =
+            window.localStorage.getItem(
+              STORAGE_KEY
+            );
 
-        if (saved) {
-          const parsed =
-            JSON.parse(
-              saved
-            ) as LumiereState;
+          if (saved) {
+            const parsed =
+              JSON.parse(
+                saved
+              ) as LumiereState;
 
-          if (
-            Array.isArray(
-              parsed.tasks
-            ) &&
-            parsed.settings
-          ) {
-            localState =
-              parsed;
-          }
-        }
-      } catch {
-        localState = null;
-      }
-
-      /*
-       * Database is the primary source.
-       *
-       * If database is empty but old
-       * browser data exists, migrate it.
-       */
-      const state =
-        databaseState ??
-        localState ?? {
-          tasks: [],
-          settings:
-            DEFAULT_SETTINGS,
-        };
-
-      if (cancelled) {
-        return;
-      }
-
-      setTasks(
-        state.tasks
-      );
-
-      setSettings({
-        ...DEFAULT_SETTINGS,
-        ...state.settings,
-      });
-
-      /*
-       * One-time migration.
-       */
-      if (
-        !databaseState &&
-        localState
-      ) {
-        const migrateResponse =
-          await fetch(
-            "/api/lumiere/state",
-            {
-              method: "PUT",
-
-              headers: {
-                "Content-Type":
-                  "application/json",
-              },
-
-              body:
-                JSON.stringify(
-                  localState
-                ),
+            if (
+              Array.isArray(
+                parsed.tasks
+              ) &&
+              parsed.settings
+            ) {
+              localState =
+                parsed;
             }
-          );
-
-        if (
-          !migrateResponse.ok
-        ) {
-          throw new Error(
-            "Lumiere migration failed"
-          );
+          }
+        } catch {
+          localState = null;
         }
-      }
 
-      /*
-       * Browser storage is no longer
-       * our source of truth.
-       */
-      if (
-        databaseState ||
-        localState
-      ) {
-        window.localStorage.removeItem(
-          STORAGE_KEY
+        /*
+         * Database is the primary source.
+         *
+         * If database is empty but old
+         * browser data exists, migrate it.
+         */
+        const state =
+          databaseState ??
+          localState ?? {
+            tasks: [],
+            settings:
+              DEFAULT_SETTINGS,
+          };
+
+        if (cancelled) {
+          return;
+        }
+
+        setTasks(
+          state.tasks
         );
-      }
 
-      setToast(
-        "MongoDB workspace loaded"
-      );
-    } catch (error) {
-      console.error(error);
+        setSettings({
+          ...DEFAULT_SETTINGS,
+          ...state.settings,
+        });
 
-      /*
-       * Emergency fallback:
-       * don't destroy local data if
-       * Atlas temporarily fails.
-       */
-      try {
-        const saved =
-          window.localStorage.getItem(
-            STORAGE_KEY
-          );
+        /*
+         * One-time migration.
+         */
+        if (
+          !databaseState &&
+          localState
+        ) {
+          const migrateResponse =
+            await fetch(
+              "/api/lumiere/state",
+              {
+                method: "PUT",
 
-        if (saved) {
-          const parsed =
-            JSON.parse(
-              saved
-            ) as LumiereState;
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+
+                body:
+                  JSON.stringify(
+                    localState
+                  ),
+              }
+            );
 
           if (
-            Array.isArray(
-              parsed.tasks
-            )
+            !migrateResponse.ok
           ) {
-            setTasks(
-              parsed.tasks
+            throw new Error(
+              "Lumiere migration failed"
             );
           }
-
-          if (
-            parsed.settings
-          ) {
-            setSettings({
-              ...DEFAULT_SETTINGS,
-              ...parsed.settings,
-            });
-          }
         }
-      } catch {
-        // Ignore fallback failure.
-      }
 
-      setToast(
-        "MongoDB connection failed"
-      );
-    } finally {
-      if (!cancelled) {
-        setHydrated(true);
+        /*
+         * Browser storage is no longer
+         * our source of truth.
+         */
+        if (
+          databaseState ||
+          localState
+        ) {
+          window.localStorage.removeItem(
+            STORAGE_KEY
+          );
+        }
+
+        setToast(
+          "MongoDB workspace loaded"
+        );
+      } catch (error) {
+        console.error(error);
+
+        /*
+         * Emergency fallback:
+         * don't destroy local data if
+         * Atlas temporarily fails.
+         */
+        try {
+          const saved =
+            window.localStorage.getItem(
+              STORAGE_KEY
+            );
+
+          if (saved) {
+            const parsed =
+              JSON.parse(
+                saved
+              ) as LumiereState;
+
+            if (
+              Array.isArray(
+                parsed.tasks
+              )
+            ) {
+              setTasks(
+                parsed.tasks
+              );
+            }
+
+            if (
+              parsed.settings
+            ) {
+              setSettings({
+                ...DEFAULT_SETTINGS,
+                ...parsed.settings,
+              });
+            }
+          }
+        } catch {
+          // Ignore fallback failure.
+        }
+
+        setToast(
+          "MongoDB connection failed"
+        );
+      } finally {
+        if (!cancelled) {
+          setHydrated(true);
+        }
       }
     }
-  }
 
-  void loadState();
+    void loadState();
 
-  return () => {
-    cancelled = true;
-  };
-}, []);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-useEffect(() => {
-  if (!hydrated) {
-    return;
-  }
+  useEffect(() => {
+    if (!hydrated) {
+      return;
+    }
 
-  /*
-   * Small debounce so typing a prompt
-   * doesn't write to MongoDB on every
-   * single keystroke.
-   */
-  const timeout =
-    window.setTimeout(() => {
-      const state: LumiereState = {
-        tasks,
-        settings,
-      };
+    /*
+     * Small debounce so typing a prompt
+     * doesn't write to MongoDB on every
+     * single keystroke.
+     */
+    const timeout =
+      window.setTimeout(() => {
+        const state: LumiereState = {
+          tasks,
+          settings,
+        };
 
-      void fetch(
-        "/api/lumiere/state",
-        {
-          method: "PUT",
+        void fetch(
+          "/api/lumiere/state",
+          {
+            method: "PUT",
 
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
 
-          body:
-            JSON.stringify(
-              state
-            ),
-        }
-      )
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error();
+            body:
+              JSON.stringify(
+                state
+              ),
           }
+        )
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error();
+            }
 
-          setToast(
-            "Saved to MongoDB"
-          );
-        })
-        .catch(() => {
-          setToast(
-            "MongoDB save failed"
-          );
-        });
-    }, 400);
+            setToast(
+              "Saved to MongoDB"
+            );
+          })
+          .catch(() => {
+            setToast(
+              "MongoDB save failed"
+            );
+          });
+      }, 400);
 
-  return () => {
-    window.clearTimeout(
-      timeout
-    );
-  };
-}, [
-  tasks,
-  settings,
-  hydrated,
-]);
+    return () => {
+      window.clearTimeout(
+        timeout
+      );
+    };
+  }, [
+    tasks,
+    settings,
+    hydrated,
+  ]);
 
   const stats = useMemo(() => {
     const counts = Object.fromEntries(STATUS_ORDER.map((status) => [status, tasks.filter((task) => task.status === status).length])) as Record<
@@ -627,16 +627,142 @@ useEffect(() => {
                 <table className="lum-table">
                   <thead><tr><th>Task</th><th>Submitted</th><th>Prompt</th><th>Status</th><th>Payment</th><th /></tr></thead>
                   <tbody>
-                    {filteredTasks.map((task) => (
-                      <tr key={task.id}>
-                        <td><div className="lum-task-identity"><span><Sparkles size={14} /></span><div><strong>{task.taskId}</strong><small>{task.category}</small></div></div></td>
-                        <td>{shortDate(task.submissionDate)}</td>
-                        <td><p className="lum-prompt-cell">{task.prompt}</p>{task.rejectionReason && <small className="lum-reject-note">Reason: {task.rejectionReason}</small>}</td>
-                        <td><StatusSelect task={task} onStatus={(next) => requestStatusChange(task, next)} /></td>
-                        <td>{task.status === "Accepted" ? <span className="lum-paid-badge"><CheckCircle2 size={13} /> {money(settings.amountPerAcceptedTask, settings.currency)}</span> : <span className="lum-unpaid-text">—</span>}</td>
-                        <td><button className="lum-icon-button" onClick={() => setEditingTask(task)} aria-label={`Edit ${task.taskId}`}><Pencil size={14} /></button></td>
-                      </tr>
-                    ))}
+
+                    {filteredTasks.map(
+                      (task) => (
+
+                        <tr key={task.id}>
+
+                          <td className="lum-mobile-primary">
+
+                            <div className="lum-task-identity">
+
+                              <span>
+                                <Sparkles
+                                  size={14}
+                                />
+                              </span>
+
+                              <div>
+                                <strong>
+                                  {task.taskId}
+                                </strong>
+
+                                <small>
+                                  {task.category}
+                                </small>
+                              </div>
+
+                            </div>
+
+                          </td>
+
+
+                          <td data-label="Submitted">
+                            {shortDate(
+                              task.submissionDate
+                            )}
+                          </td>
+
+
+                          <td
+                            data-label="Prompt"
+                            className="lum-mobile-full"
+                          >
+
+                            <p className="lum-prompt-cell">
+                              {task.prompt}
+                            </p>
+
+                            {task.rejectionReason && (
+                              <small className="lum-reject-note">
+                                Reason:{" "}
+                                {
+                                  task.rejectionReason
+                                }
+                              </small>
+                            )}
+
+                          </td>
+
+
+                          <td data-label="Status">
+
+                            <StatusSelect
+                              task={task}
+                              onStatus={(next) =>
+                                requestStatusChange(
+                                  task,
+                                  next
+                                )
+                              }
+                            />
+
+                          </td>
+
+
+                          <td
+                            data-label="Payment"
+                            className={`lum-mobile-optional ${task.status !==
+                                "Accepted"
+                                ? "is-empty"
+                                : ""
+                              }`}
+                          >
+
+                            {task.status ===
+                              "Accepted" ? (
+
+                              <span className="lum-paid-badge">
+
+                                <CheckCircle2
+                                  size={13}
+                                />
+
+                                {money(
+                                  settings
+                                    .amountPerAcceptedTask,
+                                  settings.currency
+                                )}
+
+                              </span>
+
+                            ) : (
+
+                              <span className="lum-unpaid-text">
+                                —
+                              </span>
+
+                            )}
+
+                          </td>
+
+
+                          <td className="lum-mobile-action">
+
+                            <button
+                              className="lum-icon-button"
+                              onClick={() =>
+                                setEditingTask(
+                                  task
+                                )
+                              }
+                              aria-label={`Edit ${task.taskId}`}
+                            >
+                              <Pencil size={14} />
+
+                              <span className="lum-edit-label">
+                                Edit task
+                              </span>
+                            </button>
+
+                          </td>
+
+                        </tr>
+
+                      )
+                    )}
+
                   </tbody>
                 </table>
                 {!filteredTasks.length && <div className="lum-empty-registry"><Sparkles size={22} /><h3>No tasks found</h3><p>Add your first Lumière submission or change the current filter.</p><button className="lum-primary-button" onClick={() => setCreatingTask(true)}><Plus size={16} /> Add task</button></div>}

@@ -5061,3 +5061,1109 @@ a {
 
   font-size: 11px;
 }
+/* =========================================================
+   DYNAMO SUMMARY PANEL ALIGNMENT
+   ========================================================= */
+
+.dynamo-summary-editor {
+  margin-top: 12px;
+  border-radius: 17px;
+  overflow: hidden;
+}
+
+/* =========================================================
+   MOBILE UX V2
+   Dynamo + Lumière
+   Keep this block LAST in globals.css
+   ========================================================= */
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+
+/* Desktop Dynamo alignment */
+
+.dynamo-summary-editor {
+  margin-top: 12px;
+  border-radius: 17px;
+  overflow: hidden;
+}
+
+
+/* Lumière edit text is desktop-hidden */
+
+.lum-edit-label {
+  display: none;
+}
+
+
+/* =========================================================
+   PHONE / SMALL TABLET
+   ========================================================= */
+
+@media (max-width: 700px) {
+
+  /* -------------------------------------------------------
+     SHARED PAGE GEOMETRY
+     ------------------------------------------------------- */
+
+  .project-main {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .page-content,
+  .lumiere-content {
+    width: 100%;
+    max-width: 100%;
+    padding: 13px !important;
+  }
+
+
+  /* -------------------------------------------------------
+     DYNAMO TOP BAR
+     ------------------------------------------------------- */
+
+  .topbar {
+    min-height: 76px;
+    padding: 12px 14px !important;
+  }
+
+  .topbar > div:nth-child(2) {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .topbar h1 {
+    font-size: 21px !important;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .eyebrow {
+    font-size: 9px !important;
+  }
+
+  .topbar-actions {
+    margin-left: 0;
+  }
+
+  .topbar-actions .primary-button {
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px;
+
+    border-radius: 12px;
+  }
+
+
+  /* -------------------------------------------------------
+     DYNAMO EARNINGS
+     Four huge vertical cards -> compact 2 × 2 grid
+     ------------------------------------------------------- */
+
+  .dynamo-earnings-metrics {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr))
+      !important;
+
+    gap: 9px !important;
+  }
+
+  .payment-big {
+    min-height: 128px;
+
+    padding: 15px !important;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .payment-big span {
+    font-size: 10px !important;
+    line-height: 1.4;
+  }
+
+  .payment-big strong {
+    font-size: 26px !important;
+    line-height: 1.05;
+    margin: 8px 0 5px;
+  }
+
+  .payment-big small {
+    font-size: 11px !important;
+    line-height: 1.4;
+  }
+
+
+  /* -------------------------------------------------------
+     DYNAMO PLATFORM SNAPSHOT
+     ------------------------------------------------------- */
+
+  .dynamo-summary-editor {
+    margin-top: 10px;
+
+    padding: 16px !important;
+
+    border-radius: 16px;
+  }
+
+  .dynamo-summary-editor
+  .section-heading {
+    margin-bottom: 10px;
+  }
+
+  .summary-helper {
+    margin:
+      6px 0 15px !important;
+
+    font-size: 12px;
+    line-height: 1.55;
+  }
+
+  .dynamo-summary-fields {
+    grid-template-columns:
+      1fr !important;
+
+    gap: 10px !important;
+  }
+
+  .dynamo-summary-fields input {
+    height: 44px;
+  }
+
+  .dynamo-summary-total {
+    min-height: 64px;
+  }
+
+
+  /* -------------------------------------------------------
+     DYNAMO REGISTRY / CREDIT LEDGER
+     Desktop tables become cards
+     ------------------------------------------------------- */
+
+  .data-table-wrap {
+    overflow: visible !important;
+  }
+
+  .data-table.task-table,
+  .data-table.payment-table {
+    display: block;
+
+    width: 100%;
+    min-width: 0 !important;
+
+    border-collapse: separate;
+  }
+
+  .data-table.task-table thead,
+  .data-table.payment-table thead {
+    display: none;
+  }
+
+  .data-table.task-table tbody,
+  .data-table.payment-table tbody {
+    display: grid;
+
+    gap: 10px;
+
+    padding: 10px;
+  }
+
+  .data-table.task-table tr,
+  .data-table.payment-table tr {
+    display: grid;
+
+    grid-template-columns:
+      minmax(0, 1fr)
+      minmax(0, 1fr);
+
+    column-gap: 15px;
+
+    padding: 14px;
+
+    border:
+      1px solid
+      rgba(
+        255,
+        255,
+        255,
+        .075
+      );
+
+    border-radius: 14px;
+
+    background:
+      linear-gradient(
+        145deg,
+        rgba(18, 25, 35, .94),
+        rgba(10, 15, 22, .96)
+      );
+
+    overflow: hidden;
+  }
+
+  .data-table.task-table td,
+  .data-table.payment-table td {
+    min-width: 0;
+
+    padding: 10px 0 !important;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 8px;
+
+    border-bottom:
+      1px solid
+      rgba(
+        255,
+        255,
+        255,
+        .055
+      );
+
+    font-size: 12px !important;
+  }
+
+  .data-table td[data-label]::before {
+    content:
+      attr(data-label);
+
+    flex: 0 0 auto;
+
+    color: #657287;
+
+    font:
+      700 9px
+      ui-monospace,
+      SFMono-Regular,
+      monospace;
+
+    text-transform: uppercase;
+
+    letter-spacing: .08em;
+  }
+
+
+  /* Repository becomes the card header */
+
+  .data-table
+  .mobile-primary {
+    grid-column: 1 / -1;
+
+    display: block !important;
+
+    padding:
+      0 0 12px !important;
+  }
+
+  .repo-cell {
+    width: 100%;
+    max-width: none !important;
+  }
+
+  .repo-cell > div {
+    min-width: 0;
+  }
+
+  .repo-cell a {
+    white-space: normal;
+
+    overflow-wrap: anywhere;
+
+    font-size: 13px !important;
+    line-height: 1.45;
+  }
+
+  .repo-cell small {
+    font-size: 11px !important;
+  }
+
+  .repo-cell p {
+    display: -webkit-box;
+
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+
+    overflow: hidden;
+
+    margin-top: 5px;
+
+    font-size: 11px !important;
+  }
+
+
+  /* Action button becomes proper mobile CTA */
+
+  .data-table
+  .mobile-action {
+    grid-column:
+      1 / -1;
+
+    border-bottom:
+      0 !important;
+
+    padding:
+      12px 0 0 !important;
+  }
+
+  .data-table
+  .mobile-action
+  .row-action {
+    width: 100%;
+
+    min-height: 39px;
+
+    justify-content: center;
+
+    border:
+      1px solid
+      rgba(
+        52,
+        211,
+        153,
+        .16
+      );
+
+    border-radius: 10px;
+
+    background:
+      rgba(
+        16,
+        185,
+        129,
+        .06
+      );
+
+    color: #6ee7b7;
+
+    font-size: 12px !important;
+  }
+
+
+  /* Empty payment values waste space on phone */
+
+  .payment-table
+  .mobile-optional.is-empty {
+    display: none !important;
+  }
+
+
+  /* Overview compact queue should not show 7 huge cards */
+
+  .task-table.is-compact
+  tbody
+  tr:nth-child(n + 4) {
+    display: none;
+  }
+
+
+  /* Floating import button currently overlaps content */
+
+  .import-fab {
+    display: none;
+  }
+
+
+  /* =======================================================
+     LUMIÈRE TOP BAR
+     ======================================================= */
+
+  .lumiere-topbar {
+    min-height: 76px;
+
+    padding:
+      12px 14px !important;
+
+    gap: 9px;
+  }
+
+  .lumiere-topbar
+  > div:nth-child(2) {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .lumiere-main
+  .lumiere-topbar h1 {
+    font-size:
+      21px !important;
+
+    white-space: nowrap;
+
+    overflow: hidden;
+
+    text-overflow: ellipsis;
+  }
+
+  .lumiere-main
+  .lum-eyebrow {
+    font-size:
+      9px !important;
+
+    white-space: nowrap;
+
+    overflow: hidden;
+
+    text-overflow: ellipsis;
+  }
+
+  .lum-top-actions {
+    margin-left: 0;
+  }
+
+  .lum-top-actions
+  .lum-primary-button {
+    width: 42px !important;
+    height: 42px !important;
+
+    min-width: 42px;
+
+    border-radius: 12px;
+  }
+
+
+  /* =======================================================
+     LUMIÈRE KPI GRID
+     ======================================================= */
+
+  .lum-kpi-grid {
+    grid-template-columns:
+      repeat(
+        2,
+        minmax(0, 1fr)
+      ) !important;
+
+    gap: 9px !important;
+  }
+
+  .lum-metric {
+    min-height: 112px !important;
+
+    padding: 13px !important;
+  }
+
+  .lumiere-main
+  .lum-metric small {
+    font-size:
+      10px !important;
+  }
+
+  .lumiere-main
+  .lum-metric strong {
+    font-size:
+      25px !important;
+  }
+
+  .lumiere-main
+  .lum-metric p {
+    font-size:
+      11px !important;
+
+    line-height:
+      1.4 !important;
+  }
+
+  .lum-metric.wide {
+    grid-column:
+      1 / -1 !important;
+  }
+
+
+  /* =======================================================
+     LUMIÈRE OVERVIEW PANELS
+     ======================================================= */
+
+  .lum-overview-grid {
+    grid-template-columns:
+      1fr !important;
+
+    gap: 10px;
+  }
+
+  .lum-progress-panel,
+  .lum-rate-panel,
+  .lum-activity-panel {
+    min-height: 0;
+
+    padding: 16px;
+  }
+
+  .lum-progress-body {
+    gap: 15px;
+  }
+
+  .lum-ring {
+    width: 105px;
+    height: 105px;
+
+    flex: 0 0 105px;
+  }
+
+  .lum-ring strong {
+    font-size: 23px;
+  }
+
+
+  /* =======================================================
+     LUMIÈRE KANBAN
+     Swipe horizontally instead of squeezing four columns
+     ======================================================= */
+
+  .lum-board-heading {
+    display: grid !important;
+
+    gap: 10px;
+
+    align-items: stretch;
+  }
+
+  .lum-board-search {
+    width: 100%;
+
+    min-width:
+      0 !important;
+  }
+
+  .lum-kanban {
+    display: flex !important;
+
+    gap: 10px;
+
+    overflow-x: auto;
+
+    overscroll-behavior-x:
+      contain;
+
+    scroll-snap-type:
+      x mandatory;
+
+    padding:
+      1px 1px 9px;
+
+    scrollbar-width: none;
+  }
+
+  .lum-kanban::-webkit-scrollbar {
+    display: none;
+  }
+
+  .lum-column {
+    flex:
+      0 0
+      calc(100vw - 44px);
+
+    max-width: 370px;
+
+    min-height: 0;
+
+    scroll-snap-align:
+      start;
+
+    scroll-snap-stop:
+      always;
+  }
+
+  .lum-card-stack {
+    padding: 9px;
+  }
+
+  .lum-task-card {
+    padding: 13px;
+  }
+
+
+  /* =======================================================
+     LUMIÈRE REGISTRY TOOLBAR
+     ======================================================= */
+
+  .lum-registry-toolbar {
+    display: grid !important;
+
+    grid-template-columns: 1fr;
+
+    gap: 10px;
+
+    padding: 12px !important;
+  }
+
+  .lum-registry-toolbar
+  .lum-board-search {
+    min-width:
+      0 !important;
+  }
+
+  .lum-filter-tabs {
+    width: 100%;
+
+    overflow-x: auto;
+
+    padding-bottom: 2px;
+
+    scrollbar-width: none;
+  }
+
+  .lum-filter-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .lum-registry-toolbar
+  > span:last-child {
+    margin-left:
+      0 !important;
+
+    padding-left: 2px;
+  }
+
+
+  /* =======================================================
+     LUMIÈRE TABLE -> MOBILE CARDS
+     ======================================================= */
+
+  .lum-table-wrap {
+    overflow: visible !important;
+  }
+
+  .lum-table {
+    display: block;
+
+    width: 100%;
+
+    min-width:
+      0 !important;
+  }
+
+  .lum-table thead {
+    display: none;
+  }
+
+  .lum-table tbody {
+    display: grid;
+
+    gap: 10px;
+
+    padding: 10px;
+  }
+
+  .lum-table tr {
+    display: grid;
+
+    grid-template-columns:
+      minmax(0, 1fr)
+      minmax(0, 1fr);
+
+    column-gap: 14px;
+
+    padding: 14px;
+
+    border:
+      1px solid
+      var(--lum-line);
+
+    border-radius: 14px;
+
+    background:
+      linear-gradient(
+        145deg,
+        rgba(24, 21, 29, .96),
+        rgba(14, 13, 18, .97)
+      );
+  }
+
+  .lumiere-main
+  .lum-table td {
+    min-width: 0;
+
+    padding:
+      10px 0 !important;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content:
+      space-between;
+
+    gap: 9px;
+
+    border-bottom:
+      1px solid
+      var(--lum-line);
+
+    font-size:
+      12px !important;
+  }
+
+  .lum-table
+  td[data-label]::before {
+    content:
+      attr(data-label);
+
+    flex: 0 0 auto;
+
+    color: #706879;
+
+    font:
+      700 9px
+      ui-monospace,
+      SFMono-Regular,
+      monospace;
+
+    text-transform:
+      uppercase;
+
+    letter-spacing: .08em;
+  }
+
+
+  /* Main task identity */
+
+  .lum-table
+  .lum-mobile-primary {
+    grid-column:
+      1 / -1;
+
+    display:
+      block !important;
+
+    padding:
+      0 0 12px !important;
+  }
+
+  .lum-task-identity
+  > div {
+    min-width: 0;
+  }
+
+  .lumiere-main
+  .lum-task-identity strong {
+    font-size:
+      13px !important;
+
+    overflow-wrap:
+      anywhere;
+  }
+
+
+  /* Prompt gets full card width */
+
+  .lum-table
+  .lum-mobile-full {
+    grid-column:
+      1 / -1;
+
+    display:
+      block !important;
+  }
+
+  .lumiere-main
+  .lum-prompt-cell {
+    max-width: none;
+
+    white-space: normal;
+
+    display: -webkit-box;
+
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+
+    overflow: hidden;
+
+    line-height: 1.55;
+  }
+
+  .lum-reject-note {
+    max-width: none;
+
+    white-space: normal;
+
+    display: -webkit-box;
+
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+
+    overflow: hidden;
+  }
+
+
+  /* Hide meaningless unpaid dash row */
+
+  .lum-table
+  .lum-mobile-optional.is-empty {
+    display: none !important;
+  }
+
+
+  /* Full-width edit action */
+
+  .lum-table
+  .lum-mobile-action {
+    grid-column:
+      1 / -1;
+
+    border-bottom:
+      0 !important;
+
+    padding:
+      12px 0 0 !important;
+  }
+
+  .lum-mobile-action
+  .lum-icon-button {
+    width: 100%;
+
+    height: 40px;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    gap: 7px;
+
+    color: #d39bff;
+
+    background:
+      rgba(
+        168,
+        85,
+        247,
+        .07
+      );
+
+    border-color:
+      rgba(
+        168,
+        85,
+        247,
+        .17
+      );
+  }
+
+  .lum-edit-label {
+    display: inline;
+
+    font-size: 12px;
+
+    font-weight: 700;
+  }
+
+
+  /* =======================================================
+     LUMIÈRE SETTINGS
+     ======================================================= */
+
+  .lum-settings-card {
+    padding:
+      16px !important;
+  }
+
+  .lum-settings-fields {
+    grid-template-columns:
+      1fr !important;
+  }
+
+  .lum-settings-summary {
+    flex-direction:
+      column;
+
+    align-items:
+      flex-start;
+
+    gap: 7px;
+  }
+
+  .lum-settings-actions {
+    display: grid !important;
+
+    grid-template-columns:
+      1fr;
+  }
+
+  .lum-settings-actions
+  button {
+    width: 100%;
+  }
+
+
+  /* =======================================================
+     LUMIÈRE MODALS -> MOBILE BOTTOM SHEETS
+     ======================================================= */
+
+  .lum-modal-layer {
+    padding: 0;
+
+    place-items:
+      end center;
+  }
+
+  .lum-modal {
+    width: 100%;
+
+    max-height:
+      92dvh;
+
+    border-radius:
+      20px 20px 0 0;
+  }
+
+  .lum-modal-head {
+    padding:
+      18px 17px 15px;
+  }
+
+  .lum-modal-body {
+    padding:
+      17px;
+  }
+
+  .lum-modal-footer {
+    padding:
+      13px 17px
+      calc(
+        13px +
+        env(
+          safe-area-inset-bottom
+        )
+      );
+  }
+
+  .lum-rejection-modal {
+    width: 100%;
+
+    border-radius:
+      20px 20px 0 0;
+
+    padding:
+      21px 17px
+      calc(
+        21px +
+        env(
+          safe-area-inset-bottom
+        )
+      );
+  }
+
+
+  /* Dynamo editor is effectively a mobile sheet too */
+
+  .drawer {
+    width: 100vw;
+
+    border-left: 0;
+
+    padding-bottom:
+      env(
+        safe-area-inset-bottom
+      );
+  }
+
+}
+
+@media (max-width: 410px) {
+
+  .dynamo-earnings-metrics {
+    gap: 7px !important;
+  }
+
+  .payment-big {
+    min-height: 120px;
+    padding: 13px !important;
+  }
+
+  .payment-big strong {
+    font-size: 23px !important;
+  }
+
+  .payment-big small {
+    font-size: 10px !important;
+  }
+
+  .metric-grid,
+  .lum-kpi-grid {
+    gap: 7px !important;
+  }
+
+  .metric-card,
+  .lum-metric {
+    padding: 12px !important;
+  }
+
+  .lum-progress-body {
+    display: grid;
+
+    justify-items: center;
+  }
+
+  .lum-progress-copy {
+    width: 100%;
+  }
+}
+
+/* =========================================================
+   LUMIÈRE MOBILE ADD TASK BUTTON FIX
+   ========================================================= */
+
+@media (max-width: 700px) {
+  .lumiere-main
+  .lum-top-actions
+  .lum-primary-button {
+    width: 42px !important;
+    min-width: 42px !important;
+    max-width: 42px !important;
+
+    height: 42px !important;
+    min-height: 42px !important;
+
+    padding: 0 !important;
+
+    font-size: 0 !important;
+
+    display: grid !important;
+    place-items: center !important;
+
+    flex: 0 0 42px !important;
+
+    border-radius: 12px !important;
+  }
+
+  .lumiere-main
+  .lum-top-actions
+  .lum-primary-button svg {
+    width: 19px;
+    height: 19px;
+
+    margin: 0 !important;
+  }
+
+  .lumiere-main
+  .lum-top-actions {
+    flex: 0 0 auto;
+    margin-left: auto !important;
+  }
+}
+@media (max-width: 700px) {
+  .lumiere-main
+  .lum-top-actions
+  .lum-primary-button {
+    line-height: 0 !important;
+  }
+
+  .lumiere-main
+  .lum-top-actions
+  .lum-primary-button svg {
+    display: block !important;
+    margin: 0 !important;
+
+    transform: translateY(5.5px);
+  }
+}

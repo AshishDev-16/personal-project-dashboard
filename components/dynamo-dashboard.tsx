@@ -708,7 +708,7 @@ export function DynamoDashboard({ initialTasks, onSwitchProject }: { initialTask
             </section>
 
             <section className="metric-grid">
-              <MetricCard label="Total tasks" value={stats.total} helper="tracked forks" tone="blue" icon={<GitFork size={18} />} />
+              <MetricCard label="Total tasks" value={stats.total} helper="tracked tasks" tone="blue" icon={<GitFork size={18} />} />
               <MetricCard label="Merged" value={stats.merged} helper={`${Math.round((stats.merged / stats.total) * 100)}% complete`} tone="green" icon={<CheckCircle2 size={18} />} />
               <MetricCard label="Open PRs" value={stats.open} helper="still in review" tone="purple" icon={<Clock3 size={18} />} />
               <MetricCard label="Accepted" value={stats.accepted} helper="accepted label" tone="cyan" icon={<BadgeCheck size={18} />} />
@@ -1112,28 +1112,161 @@ function Toolbar({ query, setQuery, filter, setFilter, filters, count }: { query
   );
 }
 
-function TaskRows({ tasks, paymentFor, onEdit, compact = false }: { tasks: DynamoTask[]; paymentFor: (repo: string) => PaymentRecord; onEdit: (repo: string) => void; compact?: boolean }) {
+function TaskRows({
+  tasks,
+  paymentFor,
+  onEdit,
+  compact = false,
+}: {
+  tasks: DynamoTask[];
+  paymentFor: (
+    repo: string
+  ) => PaymentRecord;
+  onEdit: (
+    repo: string
+  ) => void;
+  compact?: boolean;
+}) {
   return (
     <div className="data-table-wrap">
-      <table className="data-table">
-        <thead><tr><th>Repository</th><th>PR</th><th>Status</th><th>Accepted</th><th>Payment</th><th /></tr></thead>
+      <table
+        className={`data-table task-table ${
+          compact
+            ? "is-compact"
+            : ""
+        }`}
+      >
+        <thead>
+          <tr>
+            <th>Repository</th>
+            <th>PR</th>
+            <th>Status</th>
+            <th>Accepted</th>
+            <th>Payment</th>
+            <th />
+          </tr>
+        </thead>
+
         <tbody>
           {tasks.map((task) => {
-            const payment = paymentFor(task.repo);
+            const payment =
+              paymentFor(task.repo);
+
             return (
               <tr key={task.repo}>
-                <td><div className="repo-cell"><span className="repo-icon"><GitFork size={15} /></span><div><a href={task.forkUrl} target="_blank" rel="noreferrer">{shortRepo(task.repo)} <ExternalLink size={12} /></a><small>{task.category}</small>{!compact && <p>{task.prTitle}</p>}</div></div></td>
-                <td><a className="pr-link" href={task.prUrl} target="_blank" rel="noreferrer">#{task.prNumber}</a></td>
-                <td><StatusPill
-                  status={task.prStatus}
-                  credited={
-                    payment.status ===
-                    "Credited"
-                  }
-                /></td>
-                <td><span className={`accept-pill ${task.accepted ? "yes" : "no"}`}>{task.accepted ? <BadgeCheck size={14} /> : null}{task.accepted ? "Accepted" : "Missing"}</span></td>
-                <td><PaymentPill status={payment.status} /></td>
-                <td><button className="row-action" onClick={() => onEdit(task.repo)}>Credit <ArrowUpRight size={14} /></button></td>
+
+                <td className="mobile-primary">
+                  <div className="repo-cell">
+
+                    <span className="repo-icon">
+                      <GitFork
+                        size={15}
+                      />
+                    </span>
+
+                    <div>
+                      <a
+                        href={
+                          task.forkUrl
+                        }
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {shortRepo(
+                          task.repo
+                        )}
+
+                        <ExternalLink
+                          size={12}
+                        />
+                      </a>
+
+                      <small>
+                        {task.category}
+                      </small>
+
+                      {!compact && (
+                        <p>
+                          {
+                            task.prTitle
+                          }
+                        </p>
+                      )}
+                    </div>
+
+                  </div>
+                </td>
+
+
+                <td data-label="PR">
+                  <a
+                    className="pr-link"
+                    href={task.prUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    #{task.prNumber}
+                  </a>
+                </td>
+
+
+                <td data-label="Status">
+                  <StatusPill
+                    status={
+                      task.prStatus
+                    }
+                    credited={
+                      payment.status ===
+                      "Credited"
+                    }
+                  />
+                </td>
+
+
+                <td data-label="Accepted">
+                  <span
+                    className={`accept-pill ${
+                      task.accepted
+                        ? "yes"
+                        : "no"
+                    }`}
+                  >
+                    {task.accepted && (
+                      <BadgeCheck
+                        size={14}
+                      />
+                    )}
+
+                    {task.accepted
+                      ? "Accepted"
+                      : "Missing"}
+                  </span>
+                </td>
+
+
+                <td data-label="Credit">
+                  <PaymentPill
+                    status={
+                      payment.status
+                    }
+                  />
+                </td>
+
+
+                <td className="mobile-action">
+                  <button
+                    className="row-action"
+                    onClick={() =>
+                      onEdit(task.repo)
+                    }
+                  >
+                    Credit
+                    <ArrowUpRight
+                      size={14}
+                    />
+                  </button>
+                </td>
+
               </tr>
             );
           })}
@@ -1143,34 +1276,220 @@ function TaskRows({ tasks, paymentFor, onEdit, compact = false }: { tasks: Dynam
   );
 }
 
-function PaymentRows({ tasks, paymentFor, changeStatus, onEdit }: { tasks: DynamoTask[]; paymentFor: (repo: string) => PaymentRecord; changeStatus: (repo: string, status: PaymentStatus) => void; onEdit: (repo: string) => void }) {
+function PaymentRows({
+  tasks,
+  paymentFor,
+  changeStatus,
+  onEdit,
+}: {
+  tasks: DynamoTask[];
+  paymentFor: (
+    repo: string
+  ) => PaymentRecord;
+  changeStatus: (
+    repo: string,
+    status: PaymentStatus
+  ) => void;
+  onEdit: (
+    repo: string
+  ) => void;
+}) {
   return (
     <div className="data-table-wrap">
+
       <table className="data-table payment-table">
-        <thead><tr><th>Repository</th><th>PR state</th><th>Credit status</th><th>Expected credit</th><th>Credited amount</th><th>Credited on</th><th /></tr></thead>
+
+        <thead>
+          <tr>
+            <th>Repository</th>
+            <th>PR state</th>
+            <th>Credit status</th>
+            <th>Expected credit</th>
+            <th>Credited amount</th>
+            <th>Credited on</th>
+            <th />
+          </tr>
+        </thead>
+
+
         <tbody>
+
           {tasks.map((task) => {
-            const payment = paymentFor(task.repo);
+            const payment =
+              paymentFor(task.repo);
+
             return (
               <tr key={task.repo}>
-                <td><div className="repo-cell"><span className="repo-icon"><GitFork size={15} /></span><div><a href={task.prUrl} target="_blank" rel="noreferrer">{shortRepo(task.repo)} <ExternalLink size={12} /></a><small>PR #{task.prNumber}</small></div></div></td>
-                <td><StatusPill
-                  status={task.prStatus}
-                  credited={
-                    payment.status ===
-                    "Credited"
-                  }
-                /></td>
-                <td><select className={`payment-select ${payment.status === "Credited" ? "paid" : "unpaid"}`} value={payment.status} onChange={(e) => changeStatus(task.repo, e.target.value as PaymentStatus)}><option>Not Credited</option><option>Credited</option></select></td>
-                <td>{payment.expectedAmount == null ? <span className="muted">—</span> : money(payment.expectedAmount, payment.currency)}</td>
-                <td>{payment.creditedAmount == null ? <span className="muted">—</span> : money(payment.creditedAmount, payment.currency)}</td>
-                <td>{payment.creditedAt || <span className="muted">—</span>}</td>
-                <td><button className="row-action" onClick={() => onEdit(task.repo)}>Edit <ArrowUpRight size={14} /></button></td>
+
+                <td className="mobile-primary">
+
+                  <div className="repo-cell">
+
+                    <span className="repo-icon">
+                      <GitFork
+                        size={15}
+                      />
+                    </span>
+
+                    <div>
+                      <a
+                        href={
+                          task.prUrl
+                        }
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {shortRepo(
+                          task.repo
+                        )}
+
+                        <ExternalLink
+                          size={12}
+                        />
+                      </a>
+
+                      <small>
+                        PR #
+                        {task.prNumber}
+                      </small>
+                    </div>
+
+                  </div>
+
+                </td>
+
+
+                <td data-label="PR state">
+                  <StatusPill
+                    status={
+                      task.prStatus
+                    }
+                    credited={
+                      payment.status ===
+                      "Credited"
+                    }
+                  />
+                </td>
+
+
+                <td data-label="Credit">
+
+                  <select
+                    className={`payment-select ${
+                      payment.status ===
+                      "Credited"
+                        ? "paid"
+                        : "unpaid"
+                    }`}
+                    value={
+                      payment.status
+                    }
+                    onChange={(event) =>
+                      changeStatus(
+                        task.repo,
+                        event.target
+                          .value as PaymentStatus
+                      )
+                    }
+                  >
+                    <option>
+                      Not Credited
+                    </option>
+
+                    <option>
+                      Credited
+                    </option>
+                  </select>
+
+                </td>
+
+
+                <td
+                  data-label="Expected"
+                  className={`mobile-optional ${
+                    payment.expectedAmount ==
+                    null
+                      ? "is-empty"
+                      : ""
+                  }`}
+                >
+                  {payment.expectedAmount ==
+                  null ? (
+                    <span className="muted">
+                      —
+                    </span>
+                  ) : (
+                    money(
+                      payment.expectedAmount,
+                      payment.currency
+                    )
+                  )}
+                </td>
+
+
+                <td
+                  data-label="Amount"
+                  className={`mobile-optional ${
+                    payment.creditedAmount ==
+                    null
+                      ? "is-empty"
+                      : ""
+                  }`}
+                >
+                  {payment.creditedAmount ==
+                  null ? (
+                    <span className="muted">
+                      —
+                    </span>
+                  ) : (
+                    money(
+                      payment.creditedAmount,
+                      payment.currency
+                    )
+                  )}
+                </td>
+
+
+                <td
+                  data-label="Credited on"
+                  className={`mobile-optional ${
+                    !payment.creditedAt
+                      ? "is-empty"
+                      : ""
+                  }`}
+                >
+                  {payment.creditedAt || (
+                    <span className="muted">
+                      —
+                    </span>
+                  )}
+                </td>
+
+
+                <td className="mobile-action">
+
+                  <button
+                    className="row-action"
+                    onClick={() =>
+                      onEdit(task.repo)
+                    }
+                  >
+                    Edit credit
+                    <ArrowUpRight
+                      size={14}
+                    />
+                  </button>
+
+                </td>
+
               </tr>
             );
           })}
+
         </tbody>
+
       </table>
+
     </div>
   );
 }
