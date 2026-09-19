@@ -85,8 +85,17 @@ export function DynamoDashboard({ initialTasks, onSwitchProject }: { initialTask
   const [view, setView] = useState<View>("overview");
   const [tasks, setTasks] = useState(initialTasks);
   const [payments, setPayments] = useState<PaymentMap>({});
-  const [filter, setFilter] = useState<Filter>("All");
-  const [query, setQuery] = useState("");
+  const [taskFilter, setTaskFilter] =
+    useState<Filter>("All");
+
+  const [taskQuery, setTaskQuery] =
+    useState("");
+
+  const [creditFilter, setCreditFilter] =
+    useState<Filter>("All");
+
+  const [creditQuery, setCreditQuery] =
+    useState("");
   const [syncing, setSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [syncMessage, setSyncMessage] = useState("Ready to sync");
@@ -514,36 +523,134 @@ export function DynamoDashboard({ initialTasks, onSwitchProject }: { initialTask
     summary.paidOutToBank +
     summary.awaitingPayout;
 
-  const filteredTasks = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return tasks.filter((task) => {
-      const payment = paymentFor(task.repo).status;
-      const matchesFilter =
-        filter === "All" ||
+  const filteredTaskRegistry =
+    useMemo(() => {
+      const q =
+        taskQuery
+          .trim()
+          .toLowerCase();
 
-        (
-          filter === "Merged" &&
-          task.prStatus === "Merged" &&
-          paymentFor(task.repo)
-            .status !== "Credited"
-        ) ||
+      return tasks.filter((task) => {
+        const payment =
+          paymentFor(task.repo);
 
-        (
-          filter === "Open" &&
-          task.prStatus === "Open"
-        ) ||
+        const matchesFilter =
+          taskFilter === "All" ||
 
-        filter === payment;
-      const matchesQuery =
-        !q ||
-        task.repo.toLowerCase().includes(q) ||
-        task.prTitle.toLowerCase().includes(q) ||
-        task.category.toLowerCase().includes(q) ||
-        String(task.prNumber).includes(q);
-      return matchesFilter && matchesQuery;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, payments, filter, query]);
+          (
+            taskFilter === "Open" &&
+            task.prStatus === "Open"
+          ) ||
+
+          (
+            taskFilter === "Merged" &&
+            task.prStatus === "Merged" &&
+            payment.status !== "Credited"
+          );
+
+        const searchable =
+          [
+            task.repo,
+            shortRepo(task.repo),
+            task.prTitle,
+            task.category,
+            String(task.prNumber),
+            task.prStatus,
+          ]
+            .join(" ")
+            .toLowerCase();
+
+        const matchesQuery =
+          !q ||
+          searchable.includes(q);
+
+        return (
+          matchesFilter &&
+          matchesQuery
+        );
+      });
+    }, [
+      tasks,
+      payments,
+      taskFilter,
+      taskQuery,
+    ]);
+
+
+  const filteredCreditTasks =
+    useMemo(() => {
+      const q =
+        creditQuery
+          .trim()
+          .toLowerCase();
+
+      return tasks.filter((task) => {
+        const payment =
+          paymentFor(task.repo);
+
+        const matchesFilter =
+          creditFilter === "All" ||
+
+          (
+            creditFilter === "Credited" &&
+            payment.status === "Credited"
+          ) ||
+
+          (
+            creditFilter === "Not Credited" &&
+            payment.status === "Not Credited"
+          ) ||
+
+          (
+            creditFilter === "Merged" &&
+            task.prStatus === "Merged" &&
+            payment.status !== "Credited"
+          );
+
+        const searchable =
+          [
+            task.repo,
+            shortRepo(task.repo),
+            task.prTitle,
+            task.category,
+            String(task.prNumber),
+            task.prStatus,
+            payment.status,
+
+            payment.expectedAmount != null
+              ? String(
+                payment.expectedAmount
+              )
+              : "",
+
+            payment.creditedAmount != null
+              ? String(
+                payment.creditedAmount
+              )
+              : "",
+
+            payment.creditedAt ?? "",
+            payment.reference,
+            payment.notes,
+          ]
+            .join(" ")
+            .toLowerCase();
+
+        const matchesQuery =
+          !q ||
+          searchable.includes(q);
+
+        return (
+          matchesFilter &&
+          matchesQuery
+        );
+      });
+    }, [
+      tasks,
+      payments,
+      creditFilter,
+      creditQuery,
+    ]);
 
   const mergedNotCredited =
     tasks.filter(
@@ -812,7 +919,7 @@ export function DynamoDashboard({ initialTasks, onSwitchProject }: { initialTask
 
               <article className="glass-panel attention-card">
                 <div className="section-heading"><div><span>ATTENTION</span><h3>What needs you</h3></div><Clock3 size={18} /></div>
-                <AttentionRow tone="purple" value={stats.open} text="pull requests are still open" onClick={() => { setFilter("Open"); setView("tasks"); }} />
+                <AttentionRow tone="purple" value={stats.open} text="pull requests are still open" onClick={() => { setTaskQuery(""); setTaskFilter("Open"); setView("tasks"); }} />
                 <AttentionRow
                   tone="amber"
                   value={
@@ -820,7 +927,9 @@ export function DynamoDashboard({ initialTasks, onSwitchProject }: { initialTask
                   }
                   text="merged tasks are not yet credited"
                   onClick={() => {
-                    setFilter(
+                    setCreditQuery("");
+
+                    setCreditFilter(
                       "Not Credited"
                     );
 
@@ -855,8 +964,29 @@ export function DynamoDashboard({ initialTasks, onSwitchProject }: { initialTask
         {view === "tasks" && (
           <div className="page-content">
             <section className="glass-panel registry-panel">
-              <Toolbar query={query} setQuery={setQuery} filter={filter} setFilter={setFilter} filters={["All", "Open", "Merged"]} count={filteredTasks.length} />
-              <TaskRows tasks={filteredTasks} paymentFor={paymentFor} onEdit={setEditingRepo} />
+              <Toolbar
+                query={taskQuery}
+                setQuery={setTaskQuery}
+                filter={taskFilter}
+                setFilter={setTaskFilter}
+                filters={[
+                  "All",
+                  "Open",
+                  "Merged",
+                ]}
+                count={
+                  filteredTaskRegistry.length
+                }
+              />
+
+              <TaskRows
+                tasks={
+                  filteredTaskRegistry
+                }
+                paymentFor={paymentFor}
+                onEdit={setEditingRepo}
+              />
+              <TaskRows tasks={filteredTaskRegistry} paymentFor={paymentFor} onEdit={setEditingRepo} />
             </section>
           </div>
         )}
@@ -1038,13 +1168,34 @@ export function DynamoDashboard({ initialTasks, onSwitchProject }: { initialTask
 
             </section>
             <section className="glass-panel registry-panel">
-              <Toolbar query={query} setQuery={setQuery} filter={filter} setFilter={setFilter} filters={[
-                "All",
-                "Credited",
-                "Not Credited",
-                "Merged"
-              ]} count={filteredTasks.length} />
-              <PaymentRows tasks={filteredTasks} paymentFor={paymentFor} changeStatus={changePaymentStatus} onEdit={setEditingRepo} />
+              <Toolbar
+                query={creditQuery}
+                setQuery={setCreditQuery}
+                filter={creditFilter}
+                setFilter={setCreditFilter}
+                filters={[
+                  "All",
+                  "Credited",
+                  "Not Credited",
+                  "Merged",
+                ]}
+                count={
+                  filteredCreditTasks.length
+                }
+              />
+
+              <PaymentRows
+                tasks={
+                  filteredCreditTasks
+                }
+                paymentFor={paymentFor}
+                changeStatus={
+                  changePaymentStatus
+                }
+                onEdit={
+                  setEditingRepo
+                }
+              />
             </section>
           </div>
         )}
@@ -1130,11 +1281,10 @@ function TaskRows({
   return (
     <div className="data-table-wrap">
       <table
-        className={`data-table task-table ${
-          compact
-            ? "is-compact"
-            : ""
-        }`}
+        className={`data-table task-table ${compact
+          ? "is-compact"
+          : ""
+          }`}
       >
         <thead>
           <tr>
@@ -1225,11 +1375,10 @@ function TaskRows({
 
                 <td data-label="Accepted">
                   <span
-                    className={`accept-pill ${
-                      task.accepted
-                        ? "yes"
-                        : "no"
-                    }`}
+                    className={`accept-pill ${task.accepted
+                      ? "yes"
+                      : "no"
+                      }`}
                   >
                     {task.accepted && (
                       <BadgeCheck
@@ -1375,12 +1524,11 @@ function PaymentRows({
                 <td data-label="Credit">
 
                   <select
-                    className={`payment-select ${
-                      payment.status ===
+                    className={`payment-select ${payment.status ===
                       "Credited"
-                        ? "paid"
-                        : "unpaid"
-                    }`}
+                      ? "paid"
+                      : "unpaid"
+                      }`}
                     value={
                       payment.status
                     }
@@ -1406,15 +1554,14 @@ function PaymentRows({
 
                 <td
                   data-label="Expected"
-                  className={`mobile-optional ${
-                    payment.expectedAmount ==
+                  className={`mobile-optional ${payment.expectedAmount ==
                     null
-                      ? "is-empty"
-                      : ""
-                  }`}
+                    ? "is-empty"
+                    : ""
+                    }`}
                 >
                   {payment.expectedAmount ==
-                  null ? (
+                    null ? (
                     <span className="muted">
                       —
                     </span>
@@ -1429,15 +1576,14 @@ function PaymentRows({
 
                 <td
                   data-label="Amount"
-                  className={`mobile-optional ${
-                    payment.creditedAmount ==
+                  className={`mobile-optional ${payment.creditedAmount ==
                     null
-                      ? "is-empty"
-                      : ""
-                  }`}
+                    ? "is-empty"
+                    : ""
+                    }`}
                 >
                   {payment.creditedAmount ==
-                  null ? (
+                    null ? (
                     <span className="muted">
                       —
                     </span>
@@ -1452,11 +1598,10 @@ function PaymentRows({
 
                 <td
                   data-label="Credited on"
-                  className={`mobile-optional ${
-                    !payment.creditedAt
-                      ? "is-empty"
-                      : ""
-                  }`}
+                  className={`mobile-optional ${!payment.creditedAt
+                    ? "is-empty"
+                    : ""
+                    }`}
                 >
                   {payment.creditedAt || (
                     <span className="muted">
@@ -1499,7 +1644,7 @@ function StatusPill({
   credited,
 }: {
   status:
-    DynamoTask["prStatus"];
+  DynamoTask["prStatus"];
 
   credited: boolean;
 }) {
